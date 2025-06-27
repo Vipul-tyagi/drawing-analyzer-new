@@ -18,6 +18,7 @@ def main():
     print("🔧 Installing dependencies for PDF generation...")
     
     packages = [
+        "streamlit",
         "reportlab",
         "pillow",
         "python-dotenv"
@@ -35,4 +36,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
