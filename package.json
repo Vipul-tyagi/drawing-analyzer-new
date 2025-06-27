@@ -4,7 +4,7 @@
   "description": "AI-Enhanced Children's Drawing Analysis System",
   "scripts": {
     "start": "streamlit run app.py",
-    "install": "pip install -r requirements.txt",
+    "install": "python -m pip install -r requirements.txt",
     "dev": "streamlit run app.py --server.runOnSave true"
   },
   "keywords": ["drawing", "analysis", "children", "psychology", "ai", "streamlit"],
