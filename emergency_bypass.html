@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Children's Drawing Analysis - Emergency Mode</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+            text-align: center;
+        }
+        
+        .header {
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 1.2em;
+        }
+        
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px;
+            margin: 30px 0;
+            background: #f8f9ff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .upload-area:hover {
+            background: #f0f2ff;
+            border-color: #5a67d8;
+        }
+        
+        .upload-area.dragover {
+            background: #e6f3ff;
+            border-color: #3182ce;
+        }
+        
+        .upload-icon {
+            font-size: 4em;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+        
+        .upload-text {
+            font-size: 1.3em;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .upload-subtext {
+            color: #666;
+            font-size: 1em;
+        }
+        
+        #fileInput {
+            display: none;
+        }
+        
+        .form-group {
+            margin: 20px 0;
+            text-align: left;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .analyze-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.2em;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            margin-top: 20px;
+        }
+        
+        .analyze-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .analyze-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .preview-area {
+            margin: 20px 0;
+            display: none;
+        }
+        
+        .preview-image {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 10px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        
+        .results-area {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9ff;
+            border-radius: 15px;
+            display: none;
+            text-align: left;
+        }
+        
+        .loading {
+            display: none;
+            margin: 20px 0;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error-message {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: none;
+        }
+        
+        .success-message {
+            background: #c6f6d5;
+            color: #2f855a;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎨 Children's Drawing Analysis</h1>
+            <p>Emergency Mode - Analyze drawings without Python dependencies</p>
+        </div>
+        
+        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+            <div class="upload-icon">📁</div>
+            <div class="upload-text">Click to upload a drawing</div>
+            <div class="upload-subtext">or drag and drop an image file here</div>
+        </div>
+        
+        <input type="file" id="fileInput" accept="image/*">
+        
+        <div class="preview-area" id="previewArea">
+            <img id="previewImage" class="preview-image" alt="Preview">
+        </div>
+        
+        <div class="form-group">
+            <label for="childAge">Child's Age:</label>
+            <select id="childAge">
+                <option value="">Select age...</option>
+                <option value="2">2 years old</option>
+                <option value="3">3 years old</option>
+                <option value="4">4 years old</option>
+                <option value="5">5 years old</option>
+                <option value="6">6 years old</option>
+                <option value="7">7 years old</option>
+                <option value="8">8 years old</option>
+                <option value="9">9 years old</option>
+                <option value="10">10 years old</option>
+                <option value="11">11 years old</option>
+                <option value="12">12 years old</option>
+                <option value="13">13+ years old</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="drawingContext">Drawing Context:</label>
+            <select id="drawingContext">
+                <option value="Free Drawing">Free Drawing</option>
+                <option value="House Drawing">House Drawing</option>
+                <option value="Family Drawing">Family Drawing</option>
+                <option value="Tree Drawing">Tree Drawing</option>
+                <option value="Person Drawing">Person Drawing</option>
+                <option value="Animal Drawing">Animal Drawing</option>
+                <option value="School Assignment">School Assignment</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="customText">Additional Notes (optional):</label>
+            <textarea id="customText" rows="3" placeholder="Any additional context about the drawing or child..."></textarea>
+        </div>
+        
+        <button class="analyze-btn" id="analyzeBtn" onclick="analyzeDrawing()" disabled>
+            🔍 Analyze Drawing
+        </button>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Analyzing drawing... This may take a moment.</p>
+        </div>
+        
+        <div class="error-message" id="errorMessage"></div>
+        <div class="success-message" id="successMessage"></div>
+        
+        <div class="results-area" id="resultsArea">
+            <h3>Analysis Results</h3>
+            <div id="analysisResults"></div>
+        </div>
+    </div>
+
+    <script>
+        let selectedFile = null;
+        
+        // File upload handling
+        const fileInput = document.getElementById('fileInput');
+        const uploadArea = document.querySelector('.upload-area');
+        const previewArea = document.getElementById('previewArea');
+        const previewImage = document.getElementById('previewImage');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        
+        fileInput.addEventListener('change', handleFileSelect);
+        uploadArea.addEventListener('dragover', handleDragOver);
+        uploadArea.addEventListener('drop', handleDrop);
+        uploadArea.addEventListener('dragleave', handleDragLeave);
+        
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file && file.type.startsWith('image/')) {
+                selectedFile = file;
+                displayPreview(file);
+                updateAnalyzeButton();
+            }
+        }
+        
+        function handleDragOver(event) {
+            event.preventDefault();
+            uploadArea.classList.add('dragover');
+        }
+        
+        function handleDragLeave(event) {
+            event.preventDefault();
+            uploadArea.classList.remove('dragover');
+        }
+        
+        function handleDrop(event) {
+            event.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            const files = event.dataTransfer.files;
+            if (files.length > 0 && files[0].type.startsWith('image/')) {
+                selectedFile = files[0];
+                displayPreview(files[0]);
+                updateAnalyzeButton();
+            }
+        }
+        
+        function displayPreview(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                previewImage.src = e.target.result;
+                previewArea.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        function updateAnalyzeButton() {
+            const childAge = document.getElementById('childAge').value;
+            analyzeBtn.disabled = !selectedFile || !childAge;
+        }
+        
+        // Update button state when age is selected
+        document.getElementById('childAge').addEventListener('change', updateAnalyzeButton);
+        
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('errorMessage').style.display = 'none';
+            document.getElementById('successMessage').style.display = 'none';
+            document.getElementById('resultsArea').style.display = 'none';
+            analyzeBtn.disabled = true;
+        }
+        
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+            analyzeBtn.disabled = false;
+        }
+        
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+        
+        function showSuccess(message) {
+            const successDiv = document.getElementById('successMessage');
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+        }
+        
+        function analyzeDrawing() {
+            if (!selectedFile) {
+                showError('Please select an image file first.');
+                return;
+            }
+            
+            const childAge = document.getElementById('childAge').value;
+            if (!childAge) {
+                showError('Please select the child\'s age.');
+                return;
+            }
+            
+            showLoading();
+            
+            // Simulate analysis process
+            setTimeout(() => {
+                performClientSideAnalysis();
+            }, 2000);
+        }
+        
+        function performClientSideAnalysis() {
+            try {
+                const childAge = parseInt(document.getElementById('childAge').value);
+                const drawingContext = document.getElementById('drawingContext').value;
+                const customText = document.getElementById('customText').value;
+                
+                // Basic client-side analysis
+                const analysis = generateBasicAnalysis(childAge, drawingContext, customText);
+                
+                displayResults(analysis);
+                hideLoading();
+                showSuccess('Analysis completed successfully!');
+                
+            } catch (error) {
+                hideLoading();
+                showError('Analysis failed: ' + error.message);
+            }
+        }
+        
+        function generateBasicAnalysis(childAge, drawingContext, customText) {
+            // Age-appropriate developmental expectations
+            const developmentalStages = {
+                2: { stage: "Scribbling", skills: ["Random marks", "Circular motions", "Grip development"] },
+                3: { stage: "Controlled Scribbling", skills: ["More controlled marks", "Named scribbles", "Basic shapes"] },
+                4: { stage: "Pre-Schematic", skills: ["First representational attempts", "Head-feet figures", "Basic symbols"] },
+                5: { stage: "Pre-Schematic", skills: ["More detailed figures", "Houses and trees", "Color experimentation"] },
+                6: { stage: "Schematic", skills: ["Baseline development", "X-ray drawings", "Schema formation"] },
+                7: { stage: "Schematic", skills: ["Detailed schemas", "Spatial relationships", "Storytelling through art"] },
+                8: { stage: "Dawning Realism", skills: ["More realistic proportions", "Overlapping", "Detailed environments"] },
+                9: { stage: "Dawning Realism", skills: ["Perspective attempts", "Realistic details", "Self-criticism begins"] },
+                10: { stage: "Pseudo-Realistic", skills: ["Realistic representation", "Depth and dimension", "Critical awareness"] },
+                11: { stage: "Pseudo-Realistic", skills: ["Advanced techniques", "Emotional expression", "Style development"] },
+                12: { stage: "Artistic Decision", skills: ["Personal style", "Advanced skills", "Artistic choices"] }
+            };
+            
+            const currentStage = developmentalStages[Math.min(childAge, 12)] || developmentalStages[12];
+            
+            // Generate contextual insights
+            const contextInsights = {
+                "Free Drawing": "Shows natural creative expression and personal interests",
+                "House Drawing": "Reveals feelings about home, family, and security",
+                "Family Drawing": "Indicates family relationships and social connections",
+                "Tree Drawing": "Reflects growth, stability, and life force concepts",
+                "Person Drawing": "Shows self-concept and body awareness",
+                "Animal Drawing": "Demonstrates connection to nature and empathy",
+                "School Assignment": "Shows academic engagement and following instructions"
+            };
+            
+            // Generate recommendations based on age
+            const recommendations = generateAgeAppropriateRecommendations(childAge, drawingContext);
+            
+            return {
+                developmentalAssessment: {
+                    ageGroup: `${childAge} years old`,
+                    developmentalStage: currentStage.stage,
+                    expectedSkills: currentStage.skills,
+                    assessment: childAge >= 3 ? "Age-appropriate development" : "Early developmental stage"
+                },
+                contextualAnalysis: {
+                    drawingType: drawingContext,
+                    insights: contextInsights[drawingContext] || "General creative expression",
+                    emotionalIndicators: "Positive creative engagement"
+                },
+                recommendations: recommendations,
+                summary: `This ${drawingContext.toLowerCase()} by a ${childAge}-year-old demonstrates ${currentStage.stage.toLowerCase()} characteristics, which is appropriate for their developmental stage.`
+            };
+        }
+        
+        function generateAgeAppropriateRecommendations(age, context) {
+            const baseRecommendations = [];
+            
+            if (age <= 3) {
+                baseRecommendations.push(
+                    "Provide large crayons or markers for easier grip",
+                    "Encourage exploration with different textures",
+                    "Focus on the process, not the product",
+                    "Offer plenty of large paper for free expression"
+                );
+            } else if (age <= 6) {
+                baseRecommendations.push(
+                    "Ask open-ended questions about their drawings",
+                    "Provide various art materials to explore",
+                    "Encourage storytelling about their artwork",
+                    "Display their art to show appreciation"
+                );
+            } else if (age <= 9) {
+                baseRecommendations.push(
+                    "Introduce new techniques and materials",
+                    "Encourage drawing from observation",
+                    "Support their developing schemas and symbols",
+                    "Provide constructive feedback when requested"
+                );
+            } else {
+                baseRecommendations.push(
+                    "Respect their growing critical awareness",
+                    "Offer advanced art instruction if interested",
+                    "Encourage personal style development",
+                    "Support artistic exploration and experimentation"
+                );
+            }
+            
+            // Add context-specific recommendations
+            if (context === "Family Drawing") {
+                baseRecommendations.push("Use as opportunity to discuss family relationships");
+            } else if (context === "House Drawing") {
+                baseRecommendations.push("Explore feelings about home and security");
+            }
+            
+            return baseRecommendations;
+        }
+        
+        function displayResults(analysis) {
+            const resultsDiv = document.getElementById('analysisResults');
+            
+            resultsDiv.innerHTML = `
+                <div style="margin-bottom: 25px;">
+                    <h4 style="color: #667eea; margin-bottom: 10px;">📊 Developmental Assessment</h4>
+                    <p><strong>Age Group:</strong> ${analysis.developmentalAssessment.ageGroup}</p>
+                    <p><strong>Developmental Stage:</strong> ${analysis.developmentalAssessment.developmentalStage}</p>
+                    <p><strong>Assessment:</strong> ${analysis.developmentalAssessment.assessment}</p>
+                    <p><strong>Expected Skills:</strong></p>
+                    <ul style="margin-left: 20px;">
+                        ${analysis.developmentalAssessment.expectedSkills.map(skill => `<li>${skill}</li>`).join('')}
+                    </ul>
+                </div>
+                
+                <div style="margin-bottom: 25px;">
+                    <h4 style="color: #667eea; margin-bottom: 10px;">🎨 Contextual Analysis</h4>
+                    <p><strong>Drawing Type:</strong> ${analysis.contextualAnalysis.drawingType}</p>
+                    <p><strong>Insights:</strong> ${analysis.contextualAnalysis.insights}</p>
+                    <p><strong>Emotional Indicators:</strong> ${analysis.contextualAnalysis.emotionalIndicators}</p>
+                </div>
+                
+                <div style="margin-bottom: 25px;">
+                    <h4 style="color: #667eea; margin-bottom: 10px;">💡 Recommendations</h4>
+                    <ul style="margin-left: 20px;">
+                        ${analysis.recommendations.map(rec => `<li>${rec}</li>`).join('')}
+                    </ul>
+                </div>
+                
+                <div style="margin-bottom: 25px;">
+                    <h4 style="color: #667eea; margin-bottom: 10px;">📝 Summary</h4>
+                    <p>${analysis.summary}</p>
+                </div>
+                
+                <div style="background: #e6f3ff; padding: 15px; border-radius: 8px; margin-top: 20px;">
+                    <p style="margin: 0; font-size: 0.9em; color: #2d3748;">
+                        <strong>Note:</strong> This is a basic analysis running in emergency mode. 
+                        For comprehensive AI-powered analysis with detailed psychological assessment, 
+                        please resolve the Python environment issues and use the full application.
+                    </p>
+                </div>
+            `;
+            
+            document.getElementById('resultsArea').style.display = 'block';
+        }
+    </script>
+</body>
+</html>

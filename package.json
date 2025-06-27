@@ -1,14 +1,23 @@
 {
-  "name": "childrens-drawing-analysis",
-  "version": "2.0.0",
-  "description": "Standalone Children's Drawing Analysis System",
+  "name": "childrens-drawing-analysis-emergency",
+  "version": "3.0.0",
+  "description": "Emergency mode for Children's Drawing Analysis - bypasses broken Python environment",
+  "main": "emergency_server.js",
   "scripts": {
-    "start": "python standalone_app.py",
-    "install": "python -m pip install -r requirements_minimal.txt",
-    "dev": "python standalone_app.py",
-    "setup": "python start_standalone.py"
+    "start": "node emergency_server.js",
+    "dev": "node emergency_server.js",
+    "emergency": "node emergency_server.js"
   },
-  "keywords": ["drawing", "analysis", "children", "psychology", "standalone"],
-  "author": "Drawing Analysis Team",
-  "license": "MIT"
+  "keywords": [
+    "children",
+    "drawing",
+    "analysis",
+    "psychology",
+    "emergency"
+  ],
+  "author": "AI Assistant",
+  "license": "MIT",
+  "engines": {
+    "node": ">=12.0.0"
+  }
 }
