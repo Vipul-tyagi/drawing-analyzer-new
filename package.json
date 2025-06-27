@@ -1,0 +1,13 @@
+{
+  "name": "childrens-drawing-analysis",
+  "version": "1.0.0",
+  "description": "Children's Drawing Analysis System",
+  "main": "setup.js",
+  "scripts": {
+    "setup": "node setup.js",
+    "start": "streamlit run app.py"
+  },
+  "keywords": ["drawing", "analysis", "children", "psychology"],
+  "author": "",
+  "license": "MIT"
+}
