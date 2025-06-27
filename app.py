@@ -1,1104 +1,848 @@
 import streamlit as st
-import cv2
-import numpy as np
-import tempfile
 import os
-import json
+import sys
+import tempfile
+import base64
 from datetime import datetime
-from typing import Dict, List, Optional
-import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
 from PIL import Image
-import traceback
-import torch
-from transformers import pipeline, CLIPModel, CLIPProcessor
-from dotenv import load_dotenv
+import numpy as np
+import cv2
+import json
 
-# Load environment variables
-load_dotenv()
+# Configure page
+st.set_page_config(
+    page_title="Children's Drawing Analysis",
+    page_icon="🎨",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# Import all custom modules with comprehensive error handling
-MODULES_STATUS = {}
-
-def safe_import(module_name, class_name=None):
-    """Safely import modules and track their status"""
-    try:
-        module = __import__(module_name)
-        if class_name:
-            return getattr(module, class_name), True
-        return module, True
-    except ImportError as e:
-        st.error(f"Module import error for {module_name}: {e}")
-        MODULES_STATUS[module_name] = f"Failed: {e}"
-        return None, False
-    except Exception as e:
-        st.error(f"Unexpected error importing {module_name}: {e}")
-        MODULES_STATUS[module_name] = f"Error: {e}"
-        return None, False
-
-# Import all analysis modules
-psydraw_extractor, PSYDRAW_AVAILABLE = safe_import('psydraw_feature_extractor', 'PsyDrawFeatureExtractor')
-psychological_engine, PSYCHOLOGICAL_AVAILABLE = safe_import('psychological_assessment_engine', 'PsychologicalAssessmentEngine')
-clinical_assessment, CLINICAL_AVAILABLE = safe_import('clinical_assessment_advanced', 'AdvancedClinicalAssessment')
-expert_collaboration, EXPERT_AVAILABLE = safe_import('expert_collaboration_framework', 'ExpertCollaborationFramework')
-research_validation, RESEARCH_AVAILABLE = safe_import('research_validation_module', 'ResearchValidationModule')
-validation_framework, VALIDATION_AVAILABLE = safe_import('validation_framework', 'ValidationFramework')
-bias_detection, BIAS_AVAILABLE = safe_import('validation_framework', 'BiasDetectionSystem')
-video_generator, VIDEO_AVAILABLE = safe_import('video_generator_consolidated', 'ConsolidatedVideoGenerator')
-ai_analyzer, AI_ANALYZER_AVAILABLE = safe_import('ai_analysis_engine', 'ComprehensiveAIAnalyzer')
-enhanced_summary, SUMMARY_AVAILABLE = safe_import('enhanced_summary_generator', 'EnhancedSummaryGenerator')
-pdf_generator, PDF_AVAILABLE = safe_import('pdf_report_generator', 'PDFReportGenerator')
-llm_integrator, LLM_AVAILABLE = safe_import('llm_integrator', 'StreamlinedLLMIntegrator')
-
-# Enhanced Drawing Analyzer components
-try:
-    from enhanced_drawing_analyzer import EnhancedDrawingAnalyzer, ScientificallyValidatedAnalyzer
-    ENHANCED_ANALYZER_AVAILABLE = True
-except ImportError as e:
-    st.error(f"Enhanced analyzer import error: {e}")
-    ENHANCED_ANALYZER_AVAILABLE = False
-
-class ComprehensiveDrawingAnalyzer:
-    """
-    Unified main application class integrating ALL psychological assessment modules
-    and AI analysis capabilities with comprehensive error handling
-    """
-    
-    def __init__(self):
-        self.initialized_components = {}
-        self.error_log = []
-        
-        # Initialize all available components
-        self._initialize_components()
-        
-        # Set up analysis capabilities
-        self.analysis_capabilities = self._assess_capabilities()
-        
-        print(f"✅ Comprehensive Drawing Analyzer initialized with {len(self.initialized_components)} components")
-    
-    def _initialize_components(self):
-        """Initialize all available components with error handling"""
-        
-        # Core PsyDraw components
-        if PSYDRAW_AVAILABLE:
-            try:
-                self.initialized_components['psydraw_extractor'] = psydraw_extractor()
-                print("✅ PsyDraw Feature Extractor initialized")
-            except Exception as e:
-                self.error_log.append(f"PsyDraw extractor failed: {e}")
-        
-        if PSYCHOLOGICAL_AVAILABLE:
-            try:
-                self.initialized_components['psychological_engine'] = psychological_engine()
-                print("✅ Psychological Assessment Engine initialized")
-            except Exception as e:
-                self.error_log.append(f"Psychological engine failed: {e}")
-        
-        if CLINICAL_AVAILABLE:
-            try:
-                self.initialized_components['clinical_assessment'] = clinical_assessment()
-                print("✅ Clinical Assessment initialized")
-            except Exception as e:
-                self.error_log.append(f"Clinical assessment failed: {e}")
-        
-        # Validation and research components
-        if VALIDATION_AVAILABLE:
-            try:
-                self.initialized_components['validation_framework'] = validation_framework()
-                print("✅ Validation Framework initialized")
-            except Exception as e:
-                self.error_log.append(f"Validation framework failed: {e}")
-        
-        if BIAS_AVAILABLE:
-            try:
-                self.initialized_components['bias_detection'] = bias_detection()
-                print("✅ Bias Detection System initialized")
-            except Exception as e:
-                self.error_log.append(f"Bias detection failed: {e}")
-        
-        if RESEARCH_AVAILABLE:
-            try:
-                self.initialized_components['research_validation'] = research_validation()
-                print("✅ Research Validation Module initialized")
-            except Exception as e:
-                self.error_log.append(f"Research validation failed: {e}")
-        
-        # AI and LLM components
-        if AI_ANALYZER_AVAILABLE:
-            try:
-                self.initialized_components['ai_analyzer'] = ai_analyzer()
-                print("✅ AI Analysis Engine initialized")
-            except Exception as e:
-                self.error_log.append(f"AI analyzer failed: {e}")
-        
-        if LLM_AVAILABLE:
-            try:
-                self.initialized_components['llm_integrator'] = llm_integrator()
-                print("✅ LLM Integrator initialized")
-            except Exception as e:
-                self.error_log.append(f"LLM integrator failed: {e}")
-        
-        # Expert collaboration and reporting
-        if EXPERT_AVAILABLE:
-            try:
-                self.initialized_components['expert_collaboration'] = expert_collaboration()
-                print("✅ Expert Collaboration Framework initialized")
-            except Exception as e:
-                self.error_log.append(f"Expert collaboration failed: {e}")
-        
-        if SUMMARY_AVAILABLE:
-            try:
-                self.initialized_components['enhanced_summary'] = enhanced_summary()
-                print("✅ Enhanced Summary Generator initialized")
-            except Exception as e:
-                self.error_log.append(f"Enhanced summary failed: {e}")
-        
-        if PDF_AVAILABLE:
-            try:
-                self.initialized_components['pdf_generator'] = pdf_generator()
-                print("✅ PDF Report Generator initialized")
-            except Exception as e:
-                self.error_log.append(f"PDF generator failed: {e}")
-        
-        # Video generation
-        if VIDEO_AVAILABLE:
-            try:
-                self.initialized_components['video_generator'] = video_generator()
-                print("✅ Video Generator initialized")
-            except Exception as e:
-                self.error_log.append(f"Video generator failed: {e}")
-        
-        # Enhanced analyzers
-        if ENHANCED_ANALYZER_AVAILABLE:
-            try:
-                self.initialized_components['enhanced_analyzer'] = EnhancedDrawingAnalyzer()
-                self.initialized_components['scientific_analyzer'] = ScientificallyValidatedAnalyzer()
-                print("✅ Enhanced Analyzers initialized")
-            except Exception as e:
-                self.error_log.append(f"Enhanced analyzers failed: {e}")
-    
-    def _assess_capabilities(self) -> Dict[str, bool]:
-        """Assess what analysis capabilities are available"""
-        return {
-            'basic_analysis': True,  # Always available
-            'psydraw_features': 'psydraw_extractor' in self.initialized_components,
-            'psychological_assessment': 'psychological_engine' in self.initialized_components,
-            'clinical_assessment': 'clinical_assessment' in self.initialized_components,
-            'ai_analysis': 'ai_analyzer' in self.initialized_components,
-            'llm_analysis': 'llm_integrator' in self.initialized_components,
-            'scientific_validation': 'validation_framework' in self.initialized_components,
-            'bias_detection': 'bias_detection' in self.initialized_components,
-            'research_validation': 'research_validation' in self.initialized_components,
-            'expert_collaboration': 'expert_collaboration' in self.initialized_components,
-            'enhanced_summary': 'enhanced_summary' in self.initialized_components,
-            'pdf_generation': 'pdf_generator' in self.initialized_components,
-            'video_generation': 'video_generator' in self.initialized_components,
-            'enhanced_analysis': 'enhanced_analyzer' in self.initialized_components
-        }
-    
-    def analyze_drawing_comprehensive(self, image_path: str, child_age: int, drawing_context: str, 
-                                    analysis_options: Dict[str, bool] = None) -> Dict:
-        """
-        Comprehensive drawing analysis using ALL available modules
-        """
-        if analysis_options is None:
-            analysis_options = {
-                'include_clinical': True,
-                'include_validation': True,
-                'include_ai_analysis': True,
-                'include_llm_analysis': True,
-                'include_bias_detection': True,
-                'include_research_validation': True
-            }
-        
-        try:
-            # Load and validate image
-            if not os.path.exists(image_path):
-                return {'error': f'Image file not found: {image_path}'}
-                
-            image = cv2.imread(image_path)
-            if image is None:
-                return {'error': 'Could not load image file'}
-                
-            image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            
-            # Initialize results structure
-            comprehensive_results = {
-                'timestamp': datetime.now().isoformat(),
-                'input_info': {
-                    'child_age': child_age,
-                    'age_group': self._determine_age_group(child_age),
-                    'drawing_context': drawing_context,
-                    'image_path': image_path
-                },
-                'analysis_capabilities_used': {},
-                'error_log': []
-            }
-            
-            # 1. Extract PsyDraw features (if available)
-            if self.analysis_capabilities['psydraw_features']:
-                st.info("🧠 Extracting psychological features...")
-                try:
-                    psydraw_features = self.initialized_components['psydraw_extractor'].extract_complete_psydraw_features(
-                        image_rgb, child_age, drawing_context
-                    )
-                    comprehensive_results['psydraw_features'] = psydraw_features
-                    comprehensive_results['analysis_capabilities_used']['psydraw_features'] = True
-                except Exception as e:
-                    st.warning(f"PsyDraw feature extraction warning: {e}")
-                    comprehensive_results['psydraw_features'] = self._create_default_features()
-                    comprehensive_results['error_log'].append(f"PsyDraw extraction: {e}")
-            else:
-                comprehensive_results['psydraw_features'] = self._create_default_features()
-            
-            # 2. AI Analysis (if available)
-            if self.analysis_capabilities['ai_analysis'] and analysis_options.get('include_ai_analysis', True):
-                st.info("🤖 Conducting advanced AI analysis...")
-                try:
-                    ai_analysis_results = self.initialized_components['ai_analyzer'].conduct_multi_ai_analysis(
-                        image_path, child_age, drawing_context
-                    )
-                    comprehensive_results['ai_analysis'] = ai_analysis_results
-                    comprehensive_results['analysis_capabilities_used']['ai_analysis'] = True
-                except Exception as e:
-                    st.warning(f"AI analysis warning: {e}")
-                    comprehensive_results['ai_analysis'] = self._create_default_ai_analysis()
-                    comprehensive_results['error_log'].append(f"AI analysis: {e}")
-            else:
-                comprehensive_results['ai_analysis'] = self._create_default_ai_analysis()
-            
-            # 3. LLM Analysis (if available and different from AI analysis)
-            if self.analysis_capabilities['llm_analysis'] and analysis_options.get('include_llm_analysis', True):
-                if 'ai_analysis' not in comprehensive_results or not comprehensive_results['ai_analysis'].get('llm_psychological'):
-                    st.info("🧠 Conducting LLM psychological analysis...")
-                    try:
-                        # Create mock traditional results for LLM
-                        mock_traditional = {
-                            'blip_description': 'A child\'s drawing',
-                            'color_analysis': {'dominant_color': 'mixed'},
-                            'shape_analysis': {'complexity_level': 'medium'},
-                            'spatial_analysis': {'spatial_balance': 'balanced'}
-                        }
-                        
-                        llm_responses = self.initialized_components['llm_integrator'].analyze_drawing_comprehensive(
-                            image_path, child_age, drawing_context, mock_traditional
-                        )
-                        comprehensive_results['llm_analyses'] = [{
-                            'provider': resp.provider,
-                            'analysis': resp.response,
-                            'confidence': resp.confidence,
-                            'analysis_type': resp.analysis_type,
-                            'metadata': resp.metadata
-                        } for resp in llm_responses]
-                        comprehensive_results['analysis_capabilities_used']['llm_analysis'] = True
-                    except Exception as e:
-                        st.warning(f"LLM analysis warning: {e}")
-                        comprehensive_results['llm_analyses'] = []
-                        comprehensive_results['error_log'].append(f"LLM analysis: {e}")
-            
-            # 4. Psychological Assessment (if available)
-            if self.analysis_capabilities['psychological_assessment']:
-                st.info("🔬 Conducting psychological assessment...")
-                try:
-                    psychological_assessment = self.initialized_components['psychological_engine'].conduct_comprehensive_assessment(
-                        comprehensive_results['psydraw_features'], child_age, drawing_context
-                    )
-                    comprehensive_results['psychological_assessment'] = psychological_assessment
-                    comprehensive_results['analysis_capabilities_used']['psychological_assessment'] = True
-                except Exception as e:
-                    st.warning(f"Psychological assessment warning: {e}")
-                    comprehensive_results['psychological_assessment'] = self._create_default_psychological_assessment()
-                    comprehensive_results['error_log'].append(f"Psychological assessment: {e}")
-            else:
-                comprehensive_results['psychological_assessment'] = self._create_default_psychological_assessment()
-            
-            # 5. Clinical Assessment (if requested and available)
-            if self.analysis_capabilities['clinical_assessment'] and analysis_options.get('include_clinical', True):
-                st.info("🏥 Performing clinical assessment...")
-                try:
-                    # Trauma assessment
-                    trauma_assessment = self.initialized_components['clinical_assessment'].conduct_trauma_assessment(
-                        image_rgb, comprehensive_results['psydraw_features'], child_age
-                    )
-                    
-                    # Attachment assessment
-                    attachment_assessment = self.initialized_components['clinical_assessment'].assess_attachment_patterns(
-                        image_rgb, comprehensive_results['psydraw_features'], drawing_context
-                    )
-                    
-                    comprehensive_results['clinical_results'] = {
-                        'trauma_assessment': trauma_assessment,
-                        'attachment_assessment': attachment_assessment
-                    }
-                    comprehensive_results['analysis_capabilities_used']['clinical_assessment'] = True
-                except Exception as e:
-                    st.warning(f"Clinical assessment warning: {e}")
-                    comprehensive_results['clinical_results'] = self._create_default_clinical_results()
-                    comprehensive_results['error_log'].append(f"Clinical assessment: {e}")
-            
-            # 6. Scientific Validation (if requested and available)
-            validation_results = {}
-            if analysis_options.get('include_validation', True):
-                
-                # Research validation
-                if self.analysis_capabilities['research_validation']:
-                    st.info("📊 Validating against research benchmarks...")
-                    try:
-                        validation_results = self.initialized_components['research_validation'].conduct_comprehensive_validation(
-                            comprehensive_results, child_age
-                        )
-                        comprehensive_results['analysis_capabilities_used']['research_validation'] = True
-                    except Exception as e:
-                        st.warning(f"Research validation warning: {e}")
-                        comprehensive_results['error_log'].append(f"Research validation: {e}")
-                
-                # Bias detection
-                if self.analysis_capabilities['bias_detection'] and analysis_options.get('include_bias_detection', True):
-                    try:
-                        bias_results = self.initialized_components['bias_detection'].detect_biases(
-                            comprehensive_results.get('psychological_assessment', {}),
-                            {'child_age': child_age, 'drawing_context': drawing_context},
-                            comprehensive_results.get('ai_analysis', {})
-                        )
-                        validation_results['bias_detection'] = bias_results
-                        comprehensive_results['analysis_capabilities_used']['bias_detection'] = True
-                    except Exception as e:
-                        st.warning(f"Bias detection warning: {e}")
-                        comprehensive_results['error_log'].append(f"Bias detection: {e}")
-                
-                # Scientific validation framework
-                if self.analysis_capabilities['scientific_validation']:
-                    try:
-                        scientific_validation = self.initialized_components['validation_framework'].validate_assessment(
-                            comprehensive_results
-                        )
-                        validation_results['scientific_validation'] = scientific_validation
-                        comprehensive_results['analysis_capabilities_used']['scientific_validation'] = True
-                    except Exception as e:
-                        st.warning(f"Scientific validation warning: {e}")
-                        comprehensive_results['error_log'].append(f"Scientific validation: {e}")
-            
-            comprehensive_results['validation_results'] = validation_results
-            
-            # 7. Calculate comprehensive confidence scores
-            comprehensive_results['confidence_scores'] = self._calculate_comprehensive_confidence(comprehensive_results)
-            
-            # 8. Generate enhanced summary (if available)
-            if self.analysis_capabilities['enhanced_summary']:
-                try:
-                    enhanced_summary_result = self.initialized_components['enhanced_summary'].generate_enhanced_summary(comprehensive_results)
-                    comprehensive_results['enhanced_summary'] = enhanced_summary_result
-                    comprehensive_results['analysis_capabilities_used']['enhanced_summary'] = True
-                except Exception as e:
-                    st.warning(f"Enhanced summary warning: {e}")
-                    comprehensive_results['error_log'].append(f"Enhanced summary: {e}")
-            
-            return comprehensive_results
-            
-        except Exception as e:
-            st.error(f"Comprehensive analysis error: {str(e)}")
-            st.error(f"Traceback: {traceback.format_exc()}")
-            return {'error': str(e), 'timestamp': datetime.now().isoformat()}
-    
-    def generate_pdf_report(self, analysis_results: Dict, image_path: str = None) -> Optional[str]:
-        """Generate PDF report if available"""
-        if not self.analysis_capabilities['pdf_generation']:
-            return None
-        
-        try:
-            # Use enhanced summary if available, otherwise create basic summary
-            if 'enhanced_summary' in analysis_results:
-                enhanced_summary_data = analysis_results['enhanced_summary']
-            else:
-                enhanced_summary_data = self._create_basic_summary(analysis_results)
-            
-            pdf_filename = self.initialized_components['pdf_generator'].generate_comprehensive_report(
-                analysis_results, enhanced_summary_data, image_path
-            )
-            
-            return pdf_filename
-        except Exception as e:
-            st.error(f"PDF generation failed: {e}")
-            return None
-    
-    def generate_video(self, image_path: str, analysis_results: Dict, video_options: Dict) -> Optional[str]:
-        """Generate analysis video if available"""
-        if not self.analysis_capabilities['video_generation']:
-            return None
-        
-        try:
-            video_path = self.initialized_components['video_generator'].create_comprehensive_video(
-                image_path, analysis_results, video_options
-            )
-            return video_path
-        except Exception as e:
-            st.error(f"Video generation failed: {e}")
-            return None
-    
-    def prepare_expert_review(self, analysis_results: Dict, image_path: str) -> Optional[Dict]:
-        """Prepare expert review package if available"""
-        if not self.analysis_capabilities['expert_collaboration']:
-            return None
-        
-        try:
-            expert_package = self.initialized_components['expert_collaboration'].prepare_expert_review_package(
-                analysis_results, image_path
-            )
-            return expert_package
-        except Exception as e:
-            st.error(f"Expert review preparation failed: {e}")
-            return None
-    
-    def _determine_age_group(self, age: int) -> str:
-        """Determine age group for the child"""
-        if age < 4:
-            return "Toddler (2-3 years)"
-        elif age < 7:
-            return "Preschool (4-6 years)"
-        elif age < 12:
-            return "School Age (7-11 years)"
-        else:
-            return "Adolescent (12+ years)"
-    
-    def _calculate_comprehensive_confidence(self, results: Dict) -> Dict:
-        """Calculate comprehensive confidence scores"""
-        confidence_scores = {}
-        
-        # Traditional analysis confidence
-        confidence_scores['traditional'] = 0.75
-        
-        # AI analysis confidence
-        if 'ai_analysis' in results:
-            ai_confidence = results['ai_analysis'].get('consensus_analysis', {}).get('confidence_level', 0.7)
-            confidence_scores['ai_analysis'] = float(ai_confidence)
-        
-        # Psychological assessment confidence
-        if 'psychological_assessment' in results:
-            confidence_scores['psychological'] = 0.80
-        
-        # Clinical assessment confidence
-        if 'clinical_results' in results:
-            confidence_scores['clinical'] = 0.75
-        
-        # Validation confidence
-        if 'validation_results' in results:
-            confidence_scores['validation'] = 0.85
-        
-        # Overall confidence (weighted average)
-        if confidence_scores:
-            weights = {
-                'traditional': 0.2,
-                'ai_analysis': 0.3,
-                'psychological': 0.2,
-                'clinical': 0.15,
-                'validation': 0.15
-            }
-            
-            weighted_sum = sum(confidence_scores.get(key, 0.5) * weight for key, weight in weights.items())
-            total_weight = sum(weight for key, weight in weights.items() if key in confidence_scores)
-            
-            confidence_scores['overall'] = weighted_sum / total_weight if total_weight > 0 else 0.5
-        else:
-            confidence_scores['overall'] = 0.5
-        
-        return confidence_scores
-    
-    # Default/fallback creation methods
-    def _create_default_features(self) -> Dict:
-        """Create default features when extraction fails"""
-        return {
-            'cognitive_features': {'detail_density': 0.5, 'organization_score': 0.5},
-            'emotional_features': {'emotional_valence': 0.5, 'color_emotions': {}},
-            'developmental_features': {'age_appropriateness': 'age_appropriate'},
-            'personality_features': {'drawing_size_percentile': 0.5},
-            'social_features': {'social_connection_score': 0.5},
-            'psychological_scores': {
-                'emotional_wellbeing': 0.6,
-                'cognitive_development': 0.6,
-                'social_adjustment': 0.6,
-                'overall_psychological_health': 0.6
-            }
-        }
-    
-    def _create_default_ai_analysis(self) -> Dict:
-        """Create default AI analysis when AI fails"""
-        return {
-            'clip_analysis': {'dominant_category': 'drawing', 'confidence': 0.5},
-            'blip_analysis': {'description': 'A child\'s drawing', 'confidence': 0.5},
-            'llm_psychological': {'interpretation': 'Standard analysis', 'confidence': 0.5},
-            'consensus_analysis': {'primary_emotional_state': 'neutral', 'confidence_level': 0.5},
-            'individual_analyses': []
-        }
-    
-    def _create_default_psychological_assessment(self) -> Dict:
-        """Create default psychological assessment"""
-        return {
-            'assessment_timestamp': datetime.now().isoformat(),
-            'domain_assessments': {
-                'emotional': {'indicators': [], 'overall_emotional_health': 0.6},
-                'cognitive': {'indicators': [], 'overall_cognitive_functioning': 0.6},
-                'social': {'indicators': [], 'social_connection_score': 0.6}
-            },
-            'overall_psychological_profile': {'profile_summary': 'healthy_development'}
-        }
-    
-    def _create_default_clinical_results(self) -> Dict:
-        """Create default clinical results"""
-        return {
-            'trauma_assessment': {
-                'trauma_flags': [],
-                'overall_trauma_risk': 0.2,
-                'risk_level': 'low'
-            },
-            'attachment_assessment': {
-                'attachment_style': 'secure',
-                'attachment_security_score': 0.7
-            }
-        }
-    
-    def _create_basic_summary(self, analysis_results: Dict) -> Dict:
-        """Create basic summary when enhanced summary is not available"""
-        return {
-            'executive_summary': {
-                'main_summary': 'Analysis completed successfully.',
-                'key_findings': ['Analysis completed', 'Basic assessment available'],
-                'overall_assessment': 'Good',
-                'confidence_level': analysis_results.get('confidence_scores', {}).get('overall', 0.7)
-            },
-            'enhanced_recommendations': {
-                'immediate_actions': ['Encourage continued artistic expression'],
-                'short_term_goals': ['Provide various art materials'],
-                'long_term_development': ['Support creative development']
-            },
-            'developmental_assessment': {
-                'age_group': analysis_results.get('input_info', {}).get('age_group', 'Unknown'),
-                'milestone_progress': '85%'
-            },
-            'action_plan': {
-                'this_week': ['Display artwork', 'Encourage drawing time'],
-                'this_month': ['Introduce new materials'],
-                'next_3_months': ['Monitor progress']
-            }
-        }
-
-def main():
-    """Main Streamlit application with comprehensive integration"""
-    
-    # Page configuration
-    st.set_page_config(
-        page_title="Comprehensive Children's Drawing Analysis with AI",
-        page_icon="🎨",
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
-    
-    # Custom CSS
-    st.markdown("""
-    <style>
+# Add custom CSS for better styling
+st.markdown("""
+<style>
     .main-header {
-        font-size: 2.5rem;
-        font-weight: bold;
-        color: #2E86AB;
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        padding: 2rem;
+        border-radius: 10px;
+        color: white;
         text-align: center;
         margin-bottom: 2rem;
     }
-    .ai-section {
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 1rem;
-        border-radius: 0.5rem;
+    
+    .analysis-card {
+        background: #f8f9fa;
+        padding: 1.5rem;
+        border-radius: 10px;
+        border-left: 4px solid #667eea;
         margin: 1rem 0;
     }
-    .status-good { color: #28a745; }
-    .status-warning { color: #ffc107; }
-    .status-error { color: #dc3545; }
-    </style>
+    
+    .metric-card {
+        background: white;
+        padding: 1rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+    
+    .success-message {
+        background: #d4edda;
+        color: #155724;
+        padding: 1rem;
+        border-radius: 5px;
+        border: 1px solid #c3e6cb;
+    }
+    
+    .warning-message {
+        background: #fff3cd;
+        color: #856404;
+        padding: 1rem;
+        border-radius: 5px;
+        border: 1px solid #ffeaa7;
+    }
+    
+    .error-message {
+        background: #f8d7da;
+        color: #721c24;
+        padding: 1rem;
+        border-radius: 5px;
+        border: 1px solid #f5c6cb;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Import analysis components with error handling
+@st.cache_resource
+def load_analysis_components():
+    """Load all analysis components with proper error handling"""
+    components = {}
+    
+    try:
+        from enhanced_drawing_analyzer import EnhancedDrawingAnalyzer, ScientificallyValidatedAnalyzer
+        components['enhanced_analyzer'] = EnhancedDrawingAnalyzer()
+        components['validated_analyzer'] = ScientificallyValidatedAnalyzer()
+        st.success("✅ Enhanced Drawing Analyzer loaded successfully!")
+    except ImportError as e:
+        st.warning(f"⚠️ Enhanced Drawing Analyzer not available: {e}")
+        components['enhanced_analyzer'] = None
+        components['validated_analyzer'] = None
+    
+    try:
+        from video_generator import VideoGenerator
+        components['video_generator'] = VideoGenerator()
+        st.success("✅ Video Generator loaded successfully!")
+    except ImportError as e:
+        st.warning(f"⚠️ Video Generator not available: {e}")
+        components['video_generator'] = None
+    
+    try:
+        from ai_analysis_engine import ComprehensiveAIAnalyzer
+        components['ai_analyzer'] = ComprehensiveAIAnalyzer()
+        st.success("✅ AI Analysis Engine loaded successfully!")
+    except ImportError as e:
+        st.warning(f"⚠️ AI Analysis Engine not available: {e}")
+        components['ai_analyzer'] = None
+    
+    try:
+        from clinical_assessment_advanced import AdvancedClinicalAssessment
+        components['clinical_assessment'] = AdvancedClinicalAssessment()
+        st.success("✅ Clinical Assessment loaded successfully!")
+    except ImportError as e:
+        st.warning(f"⚠️ Clinical Assessment not available: {e}")
+        components['clinical_assessment'] = None
+    
+    try:
+        from expert_collaboration_framework import ExpertCollaborationFramework
+        components['expert_framework'] = ExpertCollaborationFramework()
+        st.success("✅ Expert Collaboration Framework loaded successfully!")
+    except ImportError as e:
+        st.warning(f"⚠️ Expert Collaboration Framework not available: {e}")
+        components['expert_framework'] = None
+    
+    return components
+
+def main():
+    """Main application function"""
+    
+    # Header
+    st.markdown("""
+    <div class="main-header">
+        <h1>🎨 Children's Drawing Analysis System</h1>
+        <p>Advanced AI-powered psychological assessment of children's drawings</p>
+    </div>
     """, unsafe_allow_html=True)
     
-    # Main header
-    st.markdown('<div class="main-header">🎨 Comprehensive Children\'s Drawing Analysis Platform</div>', 
-                unsafe_allow_html=True)
-    
-    # System status section
-    with st.expander("🔧 System Status & Capabilities", expanded=False):
-        st.subheader("📊 Module Status")
-        
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.write("**Core Analysis:**")
-            st.write(f"{'✅' if PSYDRAW_AVAILABLE else '❌'} PsyDraw Features")
-            st.write(f"{'✅' if PSYCHOLOGICAL_AVAILABLE else '❌'} Psychological Assessment")
-            st.write(f"{'✅' if CLINICAL_AVAILABLE else '❌'} Clinical Assessment")
-        
-        with col2:
-            st.write("**AI & LLM:**")
-            st.write(f"{'✅' if AI_ANALYZER_AVAILABLE else '❌'} AI Analysis Engine")
-            st.write(f"{'✅' if LLM_AVAILABLE else '❌'} LLM Integration")
-            st.write(f"{'✅' if os.getenv('OPENAI_API_KEY') else '❌'} OpenAI API")
-            st.write(f"{'✅' if os.getenv('PERPLEXITY_API_KEY') else '❌'} Perplexity API")
-        
-        with col3:
-            st.write("**Validation & Output:**")
-            st.write(f"{'✅' if VALIDATION_AVAILABLE else '❌'} Scientific Validation")
-            st.write(f"{'✅' if PDF_AVAILABLE else '❌'} PDF Generation")
-            st.write(f"{'✅' if VIDEO_AVAILABLE else '❌'} Video Generation")
-            st.write(f"{'✅' if EXPERT_AVAILABLE else '❌'} Expert Collaboration")
-        
-        if MODULES_STATUS:
-            st.subheader("⚠️ Module Issues")
-            for module, status in MODULES_STATUS.items():
-                st.write(f"**{module}:** {status}")
-    
-    # Initialize analyzer
-    if 'analyzer' not in st.session_state:
-        with st.spinner("Initializing comprehensive analysis system..."):
-            try:
-                st.session_state.analyzer = ComprehensiveDrawingAnalyzer()
-                st.success("✅ Analysis system initialized successfully!")
-            except Exception as e:
-                st.error(f"❌ Failed to initialize analyzer: {e}")
-                st.stop()
+    # Load components
+    with st.spinner("Loading analysis components..."):
+        components = load_analysis_components()
     
     # Sidebar configuration
-    with st.sidebar:
-        st.header("📋 Analysis Configuration")
-        
-        # Child information
-        st.subheader("👶 Child Information")
-        child_age = st.slider("Child's Age", min_value=2, max_value=18, value=7)
-        
-        drawing_context = st.selectbox(
-            "Drawing Context",
-            ["free_drawing", "family_drawing", "house_tree_person", "self_portrait", 
-             "emotional_expression", "story_illustration", "school_assignment"]
+    st.sidebar.title("🔧 Analysis Configuration")
+    
+    # Child information
+    st.sidebar.subheader("👶 Child Information")
+    child_age = st.sidebar.slider("Child's Age", min_value=2, max_value=18, value=6)
+    drawing_context = st.sidebar.selectbox(
+        "Drawing Context",
+        ["Free Drawing", "House Drawing", "Family Drawing", "Tree Drawing", 
+         "Person Drawing", "Animal Drawing", "School Assignment", "Therapeutic Session"]
+    )
+    
+    # Analysis options
+    st.sidebar.subheader("🔬 Analysis Options")
+    analysis_type = st.sidebar.selectbox(
+        "Analysis Type",
+        ["Basic Analysis", "Enhanced Analysis", "Scientific Validation", 
+         "Clinical Assessment", "AI Multi-Model", "Complete Analysis"]
+    )
+    
+    generate_pdf = st.sidebar.checkbox("📄 Generate PDF Report", value=True)
+    generate_video = st.sidebar.checkbox("🎬 Generate Memory Video", value=False)
+    
+    if generate_video:
+        video_style = st.sidebar.selectbox(
+            "Video Animation Style",
+            ["intelligent", "elements", "particle", "floating", "animated"]
         )
-        
-        # Analysis options
-        st.subheader("🔬 Analysis Options")
-        analysis_options = {
-            'include_clinical': st.checkbox("Clinical Assessment", value=True),
-            'include_validation': st.checkbox("Scientific Validation", value=True),
-            'include_ai_analysis': st.checkbox("AI Analysis", value=True),
-            'include_llm_analysis': st.checkbox("LLM Analysis", value=True),
-            'include_bias_detection': st.checkbox("Bias Detection", value=True),
-            'include_research_validation': st.checkbox("Research Validation", value=True)
-        }
-        
-        # Output options
-        st.subheader("📄 Output Options")
-        generate_pdf = st.checkbox("Generate PDF Report", value=True)
-        generate_video = st.checkbox("Generate Analysis Video", value=False)
-        prepare_expert_review = st.checkbox("Prepare Expert Review", value=False)
-        
-        if generate_video:
-            video_style = st.selectbox(
-                "Video Style",
-                ["analysis_walkthrough", "character_animation", "drawing_evolution", 
-                 "story_animation", "scientific_presentation"]
-            )
-            video_duration = st.slider("Duration (seconds)", 10, 30, 15)
     
     # Main content area
-    col1, col2 = st.columns([1, 2])
+    col1, col2 = st.columns([1, 1])
     
     with col1:
-        st.subheader("📁 Upload Drawing")
+        st.subheader("📸 Upload Drawing")
         uploaded_file = st.file_uploader(
-            "Choose an image file",
-            type=['png', 'jpg', 'jpeg'],
+            "Choose a drawing image...",
+            type=['png', 'jpg', 'jpeg', 'bmp', 'tiff'],
             help="Upload a clear image of the child's drawing"
         )
         
         if uploaded_file is not None:
             # Display uploaded image
-            try:
-                image = Image.open(uploaded_file)
-                st.image(image, caption="Uploaded Drawing", use_column_width=True)
-                
-                # Save temporary file
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp_file:
-                    image.save(tmp_file.name)
-                    temp_image_path = tmp_file.name
-                    st.session_state.temp_image_path = temp_image_path
-            except Exception as e:
-                st.error(f"Error processing image: {e}")
-                uploaded_file = None
-    
-    with col2:
-        if uploaded_file is not None and 'temp_image_path' in st.session_state:
-            st.subheader("🔬 Analysis Results")
+            image = Image.open(uploaded_file)
+            st.image(image, caption="Uploaded Drawing", use_column_width=True)
+            
+            # Save uploaded file temporarily
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp_file:
+                image.save(tmp_file.name)
+                temp_image_path = tmp_file.name
             
             # Analysis button
-            if st.button("🚀 Start Comprehensive Analysis", type="primary"):
-                
-                with st.spinner("Conducting comprehensive analysis..."):
-                    try:
-                        # Perform comprehensive analysis
-                        results = st.session_state.analyzer.analyze_drawing_comprehensive(
-                            st.session_state.temp_image_path, 
-                            child_age, 
-                            drawing_context,
-                            analysis_options
-                        )
-                        
-                        # Store results in session state
-                        st.session_state.analysis_results = results
-                        
-                        # Generate additional outputs if requested
-                        if generate_pdf and 'error' not in results:
-                            with st.spinner("Generating PDF report..."):
-                                pdf_path = st.session_state.analyzer.generate_pdf_report(
-                                    results, st.session_state.temp_image_path
-                                )
-                                if pdf_path:
-                                    st.session_state.pdf_path = pdf_path
-                        
-                        if generate_video and 'error' not in results:
-                            with st.spinner("Generating analysis video..."):
-                                video_options = {
-                                    'style': video_style if generate_video else 'analysis_walkthrough',
-                                    'duration': video_duration if generate_video else 15
-                                }
-                                video_path = st.session_state.analyzer.generate_video(
-                                    st.session_state.temp_image_path, results, video_options
-                                )
-                                if video_path:
-                                    st.session_state.video_path = video_path
-                        
-                        if prepare_expert_review and 'error' not in results:
-                            expert_package = st.session_state.analyzer.prepare_expert_review(
-                                results, st.session_state.temp_image_path
-                            )
-                            if expert_package:
-                                st.session_state.expert_package = expert_package
-                        
-                    except Exception as e:
-                        st.error(f"Analysis failed: {e}")
-                        st.error(f"Traceback: {traceback.format_exc()}")
-                
-                # Display results
-                if 'analysis_results' in st.session_state:
-                    results = st.session_state.analysis_results
-                    if 'error' not in results:
-                        st.success("✅ Comprehensive analysis completed successfully!")
-                        
-                        # Display confidence scores
-                        confidence_scores = results.get('confidence_scores', {})
-                        
-                        st.subheader("📊 Analysis Confidence")
-                        conf_cols = st.columns(len(confidence_scores))
-                        for i, (metric, score) in enumerate(confidence_scores.items()):
-                            with conf_cols[i]:
-                                st.metric(metric.replace('_', ' ').title(), f"{score:.1%}")
-                        
-                        # Display capabilities used
-                        capabilities_used = results.get('analysis_capabilities_used', {})
-                        if capabilities_used:
-                            st.subheader("🔧 Analysis Components Used")
-                            used_components = [k.replace('_', ' ').title() for k, v in capabilities_used.items() if v]
-                            st.write(", ".join(used_components))
-                        
-                        # Display any errors
-                        if results.get('error_log'):
-                            with st.expander("⚠️ Analysis Warnings", expanded=False):
-                                for error in results['error_log']:
-                                    st.warning(error)
-                    else:
-                        st.error(f"❌ Analysis failed: {results['error']}")
-    
-    # Results display section
-    if 'analysis_results' in st.session_state and 'error' not in st.session_state.analysis_results:
-        results = st.session_state.analysis_results
-        
-        # Create tabs for different result sections
-        tabs = ["🤖 AI Analysis", "📊 Psychological Profile", "🧠 Cognitive Analysis", 
-                "❤️ Emotional Assessment", "🏥 Clinical Indicators", "📈 Validation Results"]
-        
-        if generate_video:
-            tabs.append("🎬 Video Generation")
-        
-        tab_objects = st.tabs(tabs)
-        
-        with tab_objects[0]:  # AI Analysis
-            display_ai_analysis(results)
-        
-        with tab_objects[1]:  # Psychological Profile
-            display_psychological_profile(results)
-        
-        with tab_objects[2]:  # Cognitive Analysis
-            display_cognitive_analysis(results)
-        
-        with tab_objects[3]:  # Emotional Assessment
-            display_emotional_assessment(results)
-        
-        with tab_objects[4]:  # Clinical Indicators
-            display_clinical_indicators(results, analysis_options.get('include_clinical', True))
-        
-        with tab_objects[5]:  # Validation Results
-            display_validation_results(results, analysis_options.get('include_validation', True))
-        
-        if generate_video and len(tab_objects) > 6:
-            with tab_objects[6]:  # Video Generation
-                display_video_results()
-        
-        # Download section
-        st.markdown("---")
-        st.subheader("📥 Downloads & Expert Collaboration")
-        
-        download_cols = st.columns(4)
-        
-        with download_cols[0]:
-            if 'pdf_path' in st.session_state and os.path.exists(st.session_state.pdf_path):
-                with open(st.session_state.pdf_path, 'rb') as pdf_file:
-                    st.download_button(
-                        label="📄 Download PDF Report",
-                        data=pdf_file.read(),
-                        file_name=f"drawing_analysis_{child_age}yo_{datetime.now().strftime('%Y%m%d')}.pdf",
-                        mime="application/pdf"
-                    )
-        
-        with download_cols[1]:
-            if 'video_path' in st.session_state and os.path.exists(st.session_state.video_path):
-                with open(st.session_state.video_path, 'rb') as video_file:
-                    st.download_button(
-                        label="🎬 Download Video",
-                        data=video_file.read(),
-                        file_name=f"analysis_video_{child_age}yo_{datetime.now().strftime('%Y%m%d')}.mp4",
-                        mime="video/mp4"
-                    )
-        
-        with download_cols[2]:
-            # Raw analysis data
-            analysis_json = json.dumps(results, indent=2, default=str)
-            st.download_button(
-                label="📊 Download Raw Data",
-                data=analysis_json,
-                file_name=f"analysis_data_{child_age}yo_{datetime.now().strftime('%Y%m%d')}.json",
-                mime="application/json"
-            )
-        
-        with download_cols[3]:
-            if 'expert_package' in st.session_state:
-                expert_json = json.dumps(st.session_state.expert_package, indent=2, default=str)
-                st.download_button(
-                    label="👥 Download Expert Package",
-                    data=expert_json,
-                    file_name=f"expert_review_{datetime.now().strftime('%Y%m%d')}.json",
-                    mime="application/json"
+            if st.button("🚀 Start Analysis", type="primary"):
+                analyze_drawing(
+                    temp_image_path, 
+                    child_age, 
+                    drawing_context, 
+                    analysis_type,
+                    components,
+                    generate_pdf,
+                    generate_video,
+                    video_style if generate_video else None
                 )
-
-# Display functions for different analysis sections
-def display_ai_analysis(results: Dict):
-    """Display AI analysis results"""
-    st.markdown("### 🤖 AI Analysis Results")
-    
-    ai_analysis = results.get('ai_analysis', {})
-    
-    if not ai_analysis:
-        st.info("AI analysis was not included in this assessment.")
-        return
-    
-    # AI Model Results
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.subheader("🖼️ CLIP Visual Analysis")
-        clip_analysis = ai_analysis.get('clip_analysis', {})
-        if clip_analysis:
-            st.metric("Dominant Category", clip_analysis.get('dominant_category', 'Unknown'))
-            st.metric("Confidence", f"{clip_analysis.get('confidence', 0):.1%}")
     
     with col2:
-        st.subheader("📝 BLIP Image Description")
-        blip_analysis = ai_analysis.get('blip_analysis', {})
-        if blip_analysis:
-            st.write("**Description:**", blip_analysis.get('description', 'No description available'))
-            st.metric("Confidence", f"{blip_analysis.get('confidence', 0):.1%}")
+        st.subheader("ℹ️ About This System")
+        st.markdown("""
+        <div class="analysis-card">
+            <h4>🎯 What We Analyze</h4>
+            <ul>
+                <li><strong>Developmental Assessment:</strong> Age-appropriate skills and milestones</li>
+                <li><strong>Emotional Indicators:</strong> Mood, feelings, and emotional well-being</li>
+                <li><strong>Cognitive Markers:</strong> Problem-solving and thinking patterns</li>
+                <li><strong>Social Elements:</strong> Relationships and social awareness</li>
+                <li><strong>Creative Expression:</strong> Artistic development and creativity</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("""
+        <div class="analysis-card">
+            <h4>🤖 AI Technologies Used</h4>
+            <ul>
+                <li><strong>Computer Vision:</strong> BLIP, CLIP, OpenCV</li>
+                <li><strong>Language Models:</strong> GPT-4, Perplexity AI</li>
+                <li><strong>Segmentation:</strong> SAM (Segment Anything Model)</li>
+                <li><strong>Classification:</strong> Custom AI element classifier</li>
+                <li><strong>Animation:</strong> Smart context-aware animations</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # System status
+        st.subheader("🔍 System Status")
+        display_system_status(components)
+
+def analyze_drawing(image_path, child_age, drawing_context, analysis_type, components, 
+                   generate_pdf=True, generate_video=False, video_style=None):
+    """Perform comprehensive drawing analysis"""
+    
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    try:
+        # Step 1: Basic Analysis
+        status_text.text("🔍 Starting basic analysis...")
+        progress_bar.progress(10)
+        
+        results = None
+        
+        if analysis_type == "Basic Analysis":
+            if components['enhanced_analyzer']:
+                results = components['enhanced_analyzer'].analyze_drawing_comprehensive(
+                    image_path, child_age, drawing_context
+                )
+            else:
+                st.error("Enhanced analyzer not available for basic analysis")
+                return
+        
+        elif analysis_type == "Enhanced Analysis":
+            status_text.text("🧠 Performing enhanced analysis...")
+            progress_bar.progress(20)
+            
+            if components['enhanced_analyzer']:
+                results = components['enhanced_analyzer'].analyze_drawing_with_pdf_report(
+                    image_path, child_age, drawing_context, generate_pdf
+                )
+            else:
+                st.error("Enhanced analyzer not available")
+                return
+        
+        elif analysis_type == "Scientific Validation":
+            status_text.text("📊 Conducting scientific validation...")
+            progress_bar.progress(30)
+            
+            if components['validated_analyzer']:
+                results = components['validated_analyzer'].analyze_drawing_with_validation(
+                    image_path, child_age, drawing_context
+                )
+            else:
+                st.error("Scientific validation not available")
+                return
+        
+        elif analysis_type == "Clinical Assessment":
+            status_text.text("🏥 Performing clinical assessment...")
+            progress_bar.progress(25)
+            
+            if components['clinical_assessment'] and components['enhanced_analyzer']:
+                # First get basic analysis
+                basic_results = components['enhanced_analyzer'].analyze_drawing_comprehensive(
+                    image_path, child_age, drawing_context
+                )
+                
+                # Then add clinical assessment
+                image = cv2.imread(image_path)
+                image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                
+                clinical_results = components['clinical_assessment'].conduct_trauma_assessment(
+                    image_rgb, basic_results.get('traditional_analysis', {}), child_age
+                )
+                
+                attachment_results = components['clinical_assessment'].assess_attachment_patterns(
+                    image_rgb, basic_results.get('traditional_analysis', {}), drawing_context
+                )
+                
+                # Combine results
+                results = basic_results
+                results['clinical_assessment'] = {
+                    'trauma_assessment': clinical_results,
+                    'attachment_assessment': attachment_results
+                }
+            else:
+                st.error("Clinical assessment components not available")
+                return
+        
+        elif analysis_type == "AI Multi-Model":
+            status_text.text("🤖 Running multi-AI analysis...")
+            progress_bar.progress(35)
+            
+            if components['ai_analyzer']:
+                ai_results = components['ai_analyzer'].conduct_multi_ai_analysis(
+                    image_path, child_age, drawing_context
+                )
+                
+                # Also get enhanced analysis for comparison
+                if components['enhanced_analyzer']:
+                    enhanced_results = components['enhanced_analyzer'].analyze_drawing_comprehensive(
+                        image_path, child_age, drawing_context
+                    )
+                    
+                    results = enhanced_results
+                    results['ai_multi_analysis'] = ai_results
+                else:
+                    results = {'ai_multi_analysis': ai_results}
+            else:
+                st.error("AI analyzer not available")
+                return
+        
+        elif analysis_type == "Complete Analysis":
+            status_text.text("🔬 Performing complete comprehensive analysis...")
+            progress_bar.progress(40)
+            
+            # Run all available analyses
+            if components['validated_analyzer']:
+                results = components['validated_analyzer'].analyze_drawing_with_psydraw_validation(
+                    image_path, child_age, drawing_context
+                )
+            elif components['enhanced_analyzer']:
+                results = components['enhanced_analyzer'].analyze_drawing_with_pdf_report(
+                    image_path, child_age, drawing_context, generate_pdf
+                )
+            else:
+                st.error("No analysis components available")
+                return
+        
+        progress_bar.progress(60)
+        
+        # Step 2: Generate Video if requested
+        video_path = None
+        if generate_video and components['video_generator'] and results:
+            status_text.text("🎬 Generating memory video...")
+            progress_bar.progress(70)
+            
+            try:
+                video_result = components['video_generator'].generate_memory_video(
+                    image_path,
+                    results,
+                    f"Watch this amazing {child_age}-year-old's {drawing_context.lower()} come to life!",
+                    animation_style=video_style or 'intelligent'
+                )
+                
+                if 'video_path' in video_result:
+                    video_path = video_result['video_path']
+                    st.success(f"✅ Video generated: {video_result['generation_method']}")
+                else:
+                    st.warning(f"⚠️ Video generation failed: {video_result.get('error', 'Unknown error')}")
+            
+            except Exception as e:
+                st.warning(f"⚠️ Video generation failed: {str(e)}")
+        
+        progress_bar.progress(90)
+        
+        # Step 3: Display Results
+        status_text.text("📊 Displaying results...")
+        display_analysis_results(results, video_path, child_age, drawing_context)
+        
+        progress_bar.progress(100)
+        status_text.text("✅ Analysis complete!")
+        
+        # Clean up temporary file
+        if os.path.exists(image_path):
+            os.unlink(image_path)
+    
+    except Exception as e:
+        st.error(f"❌ Analysis failed: {str(e)}")
+        st.exception(e)
+
+def display_analysis_results(results, video_path=None, child_age=None, drawing_context=None):
+    """Display comprehensive analysis results"""
+    
+    if not results or 'error' in results:
+        st.error(f"❌ Analysis failed: {results.get('error', 'Unknown error') if results else 'No results'}")
+        return
+    
+    st.success("✅ Analysis completed successfully!")
+    
+    # Create tabs for different result sections
+    tabs = st.tabs([
+        "📊 Overview", 
+        "🧠 Detailed Analysis", 
+        "📈 Metrics", 
+        "💡 Recommendations",
+        "📄 Reports",
+        "🎬 Media"
+    ])
+    
+    with tabs[0]:  # Overview
+        display_overview(results, child_age, drawing_context)
+    
+    with tabs[1]:  # Detailed Analysis
+        display_detailed_analysis(results)
+    
+    with tabs[2]:  # Metrics
+        display_metrics(results)
+    
+    with tabs[3]:  # Recommendations
+        display_recommendations(results)
+    
+    with tabs[4]:  # Reports
+        display_reports(results)
+    
+    with tabs[5]:  # Media
+        display_media(results, video_path)
+
+def display_overview(results, child_age, drawing_context):
+    """Display analysis overview"""
+    
+    st.subheader("📊 Analysis Overview")
+    
+    # Key metrics in columns
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.markdown("""
+        <div class="metric-card">
+            <h3>👶</h3>
+            <h4>Child Age</h4>
+            <p>{} years</p>
+        </div>
+        """.format(child_age), unsafe_allow_html=True)
+    
+    with col2:
+        confidence = results.get('confidence_scores', {}).get('overall', 0)
+        st.markdown("""
+        <div class="metric-card">
+            <h3>🎯</h3>
+            <h4>Confidence</h4>
+            <p>{:.1%}</p>
+        </div>
+        """.format(confidence), unsafe_allow_html=True)
     
     with col3:
-        st.subheader("🧠 LLM Psychological Analysis")
-        llm_analysis = ai_analysis.get('llm_psychological', {})
-        if llm_analysis:
-            st.write("**Interpretation:**", llm_analysis.get('interpretation', 'No interpretation available')[:200] + "...")
-            st.metric("Confidence", f"{llm_analysis.get('confidence', 0):.1%}")
+        analysis_count = len(results.get('llm_analyses', [])) + 1
+        st.markdown("""
+        <div class="metric-card">
+            <h3>🤖</h3>
+            <h4>AI Models</h4>
+            <p>{} analyses</p>
+        </div>
+        """.format(analysis_count), unsafe_allow_html=True)
     
-    # Consensus Analysis
-    st.subheader("🎯 AI Consensus Analysis")
-    consensus = ai_analysis.get('consensus_analysis', {})
-    if consensus:
+    with col4:
+        quality = results.get('summary', {}).get('analysis_quality', 'Good')
+        st.markdown("""
+        <div class="metric-card">
+            <h3>⭐</h3>
+            <h4>Quality</h4>
+            <p>{}</p>
+        </div>
+        """.format(quality), unsafe_allow_html=True)
+    
+    # AI Description
+    if 'traditional_analysis' in results:
+        ai_description = results['traditional_analysis'].get('blip_description', 'No description available')
+        st.markdown(f"""
+        <div class="analysis-card">
+            <h4>🤖 AI Description</h4>
+            <p>"{ai_description}"</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Developmental Assessment
+    if 'traditional_analysis' in results and 'developmental_assessment' in results['traditional_analysis']:
+        dev_assessment = results['traditional_analysis']['developmental_assessment']
+        level = dev_assessment.get('level', 'unknown').replace('_', ' ').title()
+        
+        color = "green" if level == "Age Appropriate" else "orange" if level == "Above Expected" else "red"
+        
+        st.markdown(f"""
+        <div class="analysis-card">
+            <h4>📈 Developmental Level</h4>
+            <p style="color: {color}; font-weight: bold; font-size: 1.2em;">{level}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Emotional Indicators
+    if 'traditional_analysis' in results and 'emotional_indicators' in results['traditional_analysis']:
+        emotional = results['traditional_analysis']['emotional_indicators']
+        mood = emotional.get('overall_mood', 'neutral').title()
+        
+        mood_color = "green" if mood == "Positive" else "red" if mood == "Concerning" else "blue"
+        
+        st.markdown(f"""
+        <div class="analysis-card">
+            <h4>😊 Emotional Mood</h4>
+            <p style="color: {mood_color}; font-weight: bold; font-size: 1.2em;">{mood}</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+def display_detailed_analysis(results):
+    """Display detailed analysis results"""
+    
+    st.subheader("🧠 Detailed Analysis")
+    
+    # Traditional Analysis
+    if 'traditional_analysis' in results:
+        with st.expander("🔍 Traditional Computer Vision Analysis", expanded=True):
+            traditional = results['traditional_analysis']
+            
+            # Color Analysis
+            if 'color_analysis' in traditional:
+                st.write("**🎨 Color Analysis:**")
+                color_data = traditional['color_analysis']
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("Dominant Color", color_data.get('dominant_color', 'Unknown'))
+                    st.metric("Color Diversity", color_data.get('color_diversity', 0))
+                with col2:
+                    st.metric("Brightness Level", f"{color_data.get('brightness_level', 0):.0f}/255")
+                    st.metric("Color Richness", color_data.get('color_richness', 'Unknown'))
+            
+            # Shape Analysis
+            if 'shape_analysis' in traditional:
+                st.write("**🔷 Shape Analysis:**")
+                shape_data = traditional['shape_analysis']
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("Total Shapes", shape_data.get('total_shapes', 0))
+                    st.metric("Complexity Level", shape_data.get('complexity_level', 'Unknown'))
+                with col2:
+                    st.metric("Drawing Coverage", f"{shape_data.get('drawing_coverage', 0):.1%}")
+                    st.metric("Detail Level", shape_data.get('detail_level', 'Unknown'))
+            
+            # Spatial Analysis
+            if 'spatial_analysis' in traditional:
+                st.write("**📐 Spatial Analysis:**")
+                spatial_data = traditional['spatial_analysis']
+                
+                st.metric("Spatial Balance", spatial_data.get('spatial_balance', 'Unknown'))
+                st.metric("Drawing Style", spatial_data.get('drawing_style', 'Unknown'))
+    
+    # LLM Analyses
+    if 'llm_analyses' in results and results['llm_analyses']:
+        with st.expander("🤖 AI Expert Analyses", expanded=True):
+            for i, analysis in enumerate(results['llm_analyses']):
+                st.write(f"**{analysis['provider'].title()} Analysis:**")
+                st.write(f"*Confidence: {analysis['confidence']:.1%}*")
+                st.write(analysis['analysis'])
+                
+                if i < len(results['llm_analyses']) - 1:
+                    st.divider()
+    
+    # Scientific Validation
+    if 'scientific_validation' in results:
+        with st.expander("📊 Scientific Validation", expanded=False):
+            validation = results['scientific_validation']
+            
+            if 'validation_metrics' in validation:
+                metrics = validation['validation_metrics']
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Reliability", f"{metrics.get('reliability', 0):.1%}")
+                with col2:
+                    st.metric("Validity", f"{metrics.get('validity', 0):.1%}")
+                with col3:
+                    st.metric("Research Alignment", f"{validation.get('research_alignment', {}).get('overall_research_alignment', 0):.1%}")
+            
+            if 'bias_analysis' in validation:
+                bias = validation['bias_analysis']
+                st.write(f"**Bias Risk Level:** {bias.get('overall_bias_risk', 'Unknown')}")
+    
+    # Clinical Assessment
+    if 'clinical_assessment' in results:
+        with st.expander("🏥 Clinical Assessment", expanded=False):
+            clinical = results['clinical_assessment']
+            
+            if 'trauma_assessment' in clinical:
+                trauma = clinical['trauma_assessment']
+                st.write("**Trauma Risk Assessment:**")
+                st.write(f"Risk Level: {trauma.get('risk_level', 'Unknown')}")
+                
+                if 'trauma_flags' in trauma and trauma['trauma_flags']:
+                    st.write("**Clinical Flags:**")
+                    for flag in trauma['trauma_flags']:
+                        st.warning(f"⚠️ {flag.indicator_type}: {flag.description}")
+            
+            if 'attachment_assessment' in clinical:
+                attachment = clinical['attachment_assessment']
+                st.write("**Attachment Assessment:**")
+                st.write(f"Attachment Style: {attachment.get('attachment_style', 'Unknown')}")
+
+def display_metrics(results):
+    """Display analysis metrics and statistics"""
+    
+    st.subheader("📈 Analysis Metrics")
+    
+    # Confidence Scores
+    if 'confidence_scores' in results:
+        st.write("**🎯 Confidence Scores:**")
+        confidence = results['confidence_scores']
+        
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Primary Emotional State", consensus.get('primary_emotional_state', 'Unknown'))
+            st.metric("Traditional ML", f"{confidence.get('traditional_ml', 0):.1%}")
         with col2:
-            st.metric("Developmental Assessment", consensus.get('developmental_assessment', 'Unknown'))
+            st.metric("LLM Average", f"{confidence.get('llm_average', 0):.1%}")
         with col3:
-            st.metric("AI Agreement Score", f"{consensus.get('ai_agreement_score', 0):.1%}")
-
-def display_psychological_profile(results: Dict):
-    """Display psychological profile"""
-    st.markdown("### 🧠 Psychological Profile Overview")
+            st.metric("Overall", f"{confidence.get('overall', 0):.1%}")
     
-    psychological_assessment = results.get('psychological_assessment', {})
-    
-    if not psychological_assessment:
-        st.info("Psychological assessment not available.")
-        return
-    
-    # Display domain assessments
-    domain_assessments = psychological_assessment.get('domain_assessments', {})
-    
-    if domain_assessments:
-        for domain, assessment in domain_assessments.items():
-            if assessment and isinstance(assessment, dict):
-                st.subheader(f"{domain.replace('_', ' ').title()} Assessment")
-                
-                # Display overall score if available
-                overall_keys = [k for k in assessment.keys() if k.startswith('overall_')]
-                for key in overall_keys:
-                    st.metric(f"Overall {domain.title()}", f"{assessment[key]:.2f}")
-
-def display_cognitive_analysis(results: Dict):
-    """Display cognitive analysis"""
-    st.markdown("### 🧠 Cognitive Analysis")
-    
-    cognitive_features = results.get('psydraw_features', {}).get('cognitive_features', {})
-    
-    if cognitive_features:
+    # Analysis Quality Indicators
+    if 'summary' in results:
+        summary = results['summary']
+        
+        st.write("**📊 Analysis Quality:**")
         col1, col2 = st.columns(2)
-        
         with col1:
-            st.subheader("Cognitive Metrics")
-            st.metric("Detail Density", f"{cognitive_features.get('detail_density', 0):.3f}")
-            st.metric("Organization Score", f"{cognitive_features.get('organization_score', 0):.2f}")
-        
+            st.metric("Analysis Quality", summary.get('analysis_quality', 'Unknown'))
+            st.metric("Total Analyses", summary.get('total_analyses', 0))
         with col2:
-            st.subheader("Complexity Analysis")
-            st.metric("Object Count", cognitive_features.get('object_count', 0))
-            st.write("**Complexity Level:**", cognitive_features.get('complexity_level', 'Unknown'))
-    else:
-        st.info("Cognitive features not available in analysis results.")
+            st.metric("Available Providers", len(summary.get('available_providers', [])))
+    
+    # Enhanced Summary Metrics
+    if 'enhanced_summary' in results and 'confidence_indicators' in results['enhanced_summary']:
+        indicators = results['enhanced_summary']['confidence_indicators']
+        
+        st.write("**🔍 Quality Indicators:**")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Data Quality", indicators.get('data_quality', 'Unknown'))
+        with col2:
+            st.metric("Analysis Depth", indicators.get('analysis_depth', 'Unknown'))
+        with col3:
+            st.metric("Reliability Score", f"{indicators.get('reliability_score', 0):.1%}")
 
-def display_emotional_assessment(results: Dict):
-    """Display emotional assessment"""
-    st.markdown("### ❤️ Emotional Assessment")
+def display_recommendations(results):
+    """Display recommendations and action plans"""
     
-    emotional_features = results.get('psydraw_features', {}).get('emotional_features', {})
+    st.subheader("💡 Recommendations & Action Plan")
     
-    if emotional_features:
-        # Color emotions analysis
-        color_emotions = emotional_features.get('color_emotions', {})
-        if color_emotions and 'emotional_profile' in color_emotions:
-            st.subheader("Color-Emotion Analysis")
+    # Enhanced Summary Recommendations
+    if 'enhanced_summary' in results and 'enhanced_recommendations' in results['enhanced_summary']:
+        recommendations = results['enhanced_summary']['enhanced_recommendations']
+        
+        # Immediate Actions
+        if 'immediate_actions' in recommendations and recommendations['immediate_actions']:
+            st.write("**🚨 Immediate Actions:**")
+            for action in recommendations['immediate_actions']:
+                st.info(f"• {action}")
+        
+        # Short-term Goals
+        if 'short_term_goals' in recommendations and recommendations['short_term_goals']:
+            st.write("**📅 Short-term Goals (1-3 months):**")
+            for goal in recommendations['short_term_goals']:
+                st.success(f"• {goal}")
+        
+        # Long-term Development
+        if 'long_term_development' in recommendations and recommendations['long_term_development']:
+            st.write("**🎯 Long-term Development (3-12 months):**")
+            for goal in recommendations['long_term_development']:
+                st.info(f"• {goal}")
+        
+        # Materials and Activities
+        if 'materials_and_activities' in recommendations:
+            materials = recommendations['materials_and_activities']
             
-            emotional_profile = color_emotions['emotional_profile']
-            if emotional_profile:
-                # Create emotion bar chart
-                emotions = list(emotional_profile.keys())
-                scores = list(emotional_profile.values())
-                
-                fig = px.bar(
-                    x=emotions, y=scores,
-                    title="Emotional Profile from Color Usage",
-                    labels={'x': 'Emotions', 'y': 'Intensity Score'}
-                )
-                st.plotly_chart(fig, use_container_width=True)
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if 'recommended_materials' in materials:
+                    st.write("**🎨 Recommended Materials:**")
+                    for material in materials['recommended_materials']:
+                        st.write(f"• {material}")
+            
+            with col2:
+                if 'suggested_activities' in materials:
+                    st.write("**🎮 Suggested Activities:**")
+                    for activity in materials['suggested_activities']:
+                        st.write(f"• {activity}")
         
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Emotional Valence", f"{emotional_features.get('emotional_valence', 0.5):.2f}")
-        with col2:
-            color_temp = emotional_features.get('color_emotions', {}).get('color_temperature', 1)
-            st.metric("Color Temperature", f"{color_temp:.2f}")
-    else:
-        st.info("Emotional features not available in analysis results.")
+        # When to Seek Help
+        if 'when_to_seek_help' in recommendations and recommendations['when_to_seek_help']:
+            st.write("**⚠️ When to Seek Professional Help:**")
+            for indicator in recommendations['when_to_seek_help']:
+                st.warning(f"• {indicator}")
+    
+    # Action Plan
+    if 'enhanced_summary' in results and 'action_plan' in results['enhanced_summary']:
+        action_plan = results['enhanced_summary']['action_plan']
+        
+        st.write("**📋 Specific Action Plan:**")
+        
+        plan_tabs = st.tabs(["This Week", "This Month", "Next 3 Months", "Ongoing"])
+        
+        with plan_tabs[0]:
+            if 'this_week' in action_plan:
+                for action in action_plan['this_week']:
+                    st.checkbox(action, key=f"week_{hash(action)}")
+        
+        with plan_tabs[1]:
+            if 'this_month' in action_plan:
+                for action in action_plan['this_month']:
+                    st.checkbox(action, key=f"month_{hash(action)}")
+        
+        with plan_tabs[2]:
+            if 'next_3_months' in action_plan:
+                for action in action_plan['next_3_months']:
+                    st.checkbox(action, key=f"quarter_{hash(action)}")
+        
+        with plan_tabs[3]:
+            if 'ongoing_support' in action_plan:
+                for action in action_plan['ongoing_support']:
+                    st.checkbox(action, key=f"ongoing_{hash(action)}")
 
-def display_clinical_indicators(results: Dict, include_clinical: bool):
-    """Display clinical assessment indicators"""
-    st.markdown("### 🏥 Clinical Assessment")
+def display_reports(results):
+    """Display and download reports"""
     
-    if not include_clinical:
-        st.info("Clinical assessment was not included in this analysis.")
-        return
+    st.subheader("📄 Reports & Downloads")
     
-    clinical_results = results.get('clinical_results', {})
-    
-    if not clinical_results:
-        st.info("Clinical assessment results not available.")
-        return
-    
-    # Trauma assessment
-    if 'trauma_assessment' in clinical_results:
-        trauma_results = clinical_results['trauma_assessment']
+    # PDF Report
+    if 'pdf_report_filename' in results and results['pdf_report_filename']:
+        pdf_file = results['pdf_report_filename']
         
-        st.subheader("🚨 Trauma Indicators")
-        
-        overall_risk = trauma_results.get('overall_trauma_risk', 0)
-        risk_level = trauma_results.get('risk_level', 'unknown')
-        
-        if risk_level == 'high':
-            st.error(f"⚠️ High trauma risk detected (Score: {overall_risk:.2f})")
-        elif risk_level == 'moderate':
-            st.warning(f"⚠️ Moderate trauma risk detected (Score: {overall_risk:.2f})")
+        if os.path.exists(pdf_file):
+            st.success("✅ PDF Report Generated Successfully!")
+            
+            # Read PDF file for download
+            with open(pdf_file, "rb") as file:
+                pdf_data = file.read()
+            
+            st.download_button(
+                label="📄 Download PDF Report",
+                data=pdf_data,
+                file_name=f"drawing_analysis_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                mime="application/pdf"
+            )
+            
+            st.info(f"📁 Report saved as: {pdf_file}")
         else:
-            st.success(f"✅ Low trauma risk (Score: {overall_risk:.2f})")
+            st.warning("⚠️ PDF report was generated but file not found")
     
-    # Attachment assessment
-    if 'attachment_assessment' in clinical_results:
-        attachment_results = clinical_results['attachment_assessment']
+    # JSON Data Export
+    if st.button("📊 Export Analysis Data (JSON)"):
+        # Create exportable data (remove non-serializable items)
+        export_data = {}
+        for key, value in results.items():
+            try:
+                json.dumps(value)  # Test if serializable
+                export_data[key] = value
+            except (TypeError, ValueError):
+                export_data[key] = str(value)  # Convert to string if not serializable
         
-        st.subheader("👨‍👩‍👧‍👦 Attachment Assessment")
+        json_data = json.dumps(export_data, indent=2)
         
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Attachment Style", attachment_results.get('attachment_style', 'Unknown'))
-        with col2:
-            st.metric("Security Score", f"{attachment_results.get('attachment_security_score', 0):.2f}")
+        st.download_button(
+            label="📊 Download Analysis Data",
+            data=json_data,
+            file_name=f"drawing_analysis_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+            mime="application/json"
+        )
+    
+    # Raw Results (for debugging)
+    with st.expander("🔧 Raw Analysis Results (Debug)", expanded=False):
+        st.json(results)
 
-def display_validation_results(results: Dict, include_validation: bool):
-    """Display validation results"""
-    st.markdown("### 📈 Validation Results")
+def display_media(results, video_path=None):
+    """Display media content (videos, animations)"""
     
-    if not include_validation:
-        st.info("Validation was not included in this analysis.")
-        return
+    st.subheader("🎬 Generated Media")
     
-    validation_results = results.get('validation_results', {})
-    
-    if not validation_results:
-        st.info("Validation results not available.")
-        return
-    
-    # Research validation
-    if 'research_compliance_score' in validation_results:
-        st.metric("Research Compliance", f"{validation_results['research_compliance_score']:.1%}")
-    
-    # Bias detection
-    if 'bias_detection' in validation_results:
-        bias_results = validation_results['bias_detection']
-        overall_bias_risk = bias_results.get('overall_bias_risk', 'unknown')
-        
-        if overall_bias_risk == 'high':
-            st.error("⚠️ High bias risk detected")
-        elif overall_bias_risk == 'medium':
-            st.warning("⚠️ Medium bias risk detected")
-        else:
-            st.success("✅ Low bias risk")
-
-def display_video_results():
-    """Display video generation results"""
-    st.markdown("### 🎬 Video Generation")
-    
-    if 'video_path' in st.session_state and os.path.exists(st.session_state.video_path):
-        st.success("✅ Analysis video generated successfully!")
+    # Memory Video
+    if video_path and os.path.exists(video_path):
+        st.success("✅ Memory Video Generated Successfully!")
         
         # Display video
-        with open(st.session_state.video_path, 'rb') as video_file:
+        with open(video_path, 'rb') as video_file:
             video_bytes = video_file.read()
-            st.video(video_bytes)
+        
+        st.video(video_bytes)
+        
+        # Download button
+        st.download_button(
+            label="🎬 Download Memory Video",
+            data=video_bytes,
+            file_name=f"memory_video_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4",
+            mime="video/mp4"
+        )
+        
+        st.info(f"📁 Video saved as: {video_path}")
+    
+    elif video_path:
+        st.warning("⚠️ Video was generated but file not found")
+    
     else:
-        st.info("Video generation was not completed or failed.")
+        st.info("ℹ️ No video generated. Enable video generation in the sidebar to create animated memories!")
+    
+    # Video Generation Options
+    st.write("**🎨 Available Animation Styles:**")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.write("• **Intelligent:** AI-powered component animation")
+        st.write("• **Elements:** Individual element animations")
+        st.write("• **Particle:** Particle effect animations")
+    
+    with col2:
+        st.write("• **Floating:** Floating and orbiting effects")
+        st.write("• **Animated:** Standard animation effects")
+
+def display_system_status(components):
+    """Display system component status"""
+    
+    status_items = [
+        ("Enhanced Analyzer", components.get('enhanced_analyzer') is not None),
+        ("Video Generator", components.get('video_generator') is not None),
+        ("AI Analysis Engine", components.get('ai_analyzer') is not None),
+        ("Clinical Assessment", components.get('clinical_assessment') is not None),
+        ("Expert Framework", components.get('expert_framework') is not None),
+    ]
+    
+    for name, available in status_items:
+        if available:
+            st.success(f"✅ {name}")
+        else:
+            st.error(f"❌ {name}")
 
 if __name__ == "__main__":
     main()
