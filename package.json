@@ -1,13 +1,14 @@
 {
   "name": "childrens-drawing-analysis",
-  "version": "1.0.0",
-  "description": "AI-Enhanced Children's Drawing Analysis System",
+  "version": "2.0.0",
+  "description": "Standalone Children's Drawing Analysis System",
   "scripts": {
-    "start": "streamlit run app.py",
-    "install": "python -m pip install -r requirements.txt",
-    "dev": "streamlit run app.py --server.runOnSave true"
+    "start": "python standalone_app.py",
+    "install": "python -m pip install -r requirements_minimal.txt",
+    "dev": "python standalone_app.py",
+    "setup": "python start_standalone.py"
   },
-  "keywords": ["drawing", "analysis", "children", "psychology", "ai", "streamlit"],
+  "keywords": ["drawing", "analysis", "children", "psychology", "standalone"],
   "author": "Drawing Analysis Team",
   "license": "MIT"
 }
